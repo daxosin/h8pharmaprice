@@ -1,18 +1,10 @@
 // server/index.ts
 import express, { type Request, type Response, type NextFunction } from "express";
 import { createServer } from "node:http";
-
-// Ces imports existent déjà dans ton projet selon tes captures
+import type { Server } from "node:http";
 import { registerRoutes } from "./routes.js";
-if (process.env.NODE_ENV !== "production") {
-  const { setupVite, log } = await import("./vite.js");
-  await setupVite(app, server);
-} else {
-  const { serveStatic } = await import("./vite.js");
-  serveStatic(app);
-}
 
-
+// ----- App de base
 const app = express();
 
 // Sécurité/réseau de base
@@ -23,7 +15,8 @@ app.set("trust proxy", true);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Petit middleware de log (durée, statut)
+// Logger simple
+let log: ((msg: string) => void) | undefined;
 app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
   res.on("finish", () => {
@@ -33,34 +26,33 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// Route santé (pour tests/monitoring)
+// Healthcheck
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
 
-// Tes routes applicatives
+// Routes applicatives
 registerRoutes?.(app);
 
-// HTTP server (utile pour Vite en dev ou WebSocket)
-const server = createServer(app);
+// HTTP server
+const server: Server = createServer(app);
 
-// Bootstrap asynchrone pour gérer DEV/PROD
+// ----- Bootstrap async (DEV = Vite, PROD = fichiers statiques)
 (async () => {
-  // En DEV: Vite middleware; en PROD: fichiers statiques (build Vite)
-  if (app.get("env") === "development") {
+  if (process.env.NODE_ENV !== "production") {
+    const { setupVite, log: viteLog } = await import("./vite.js");
+    log = viteLog;
     await setupVite?.(app, server);
   } else {
+    const { serveStatic, log: viteLog } = await import("./vite.js");
+    log = viteLog;
     serveStatic?.(app);
   }
 
-  // IMPORTANT: port dynamique pour Coolify/containers
-  const port = parseInt(process.env.PORT || "3000", 10);
-
-  server.listen(
-    { port, host: "0.0.0.0", reusePort: true },
-    () => log?.(`✅ serving on port ${port}`)
-  );
+  const port = parseInt(process.env.PORT ?? "3000", 10);
+  server.listen({ port, host: "0.0.0.0" }, () => log?.(`✅ serving on port ${port}`));
 })().catch((err) => {
   console.error("Fatal bootstrap error:", err);
   process.exit(1);
 });
+
