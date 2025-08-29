@@ -3,8 +3,8 @@ import express, { type Request, type Response, type NextFunction } from "express
 import { createServer } from "node:http";
 
 // Ces imports existent déjà dans ton projet selon tes captures
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { registerRoutes } from "./routes.js";
+import { setupVite, serveStatic, log } from "./vite.js";
 
 const app = express();
 
