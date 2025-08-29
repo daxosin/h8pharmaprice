@@ -4,7 +4,14 @@ import { createServer } from "node:http";
 
 // Ces imports existent déjà dans ton projet selon tes captures
 import { registerRoutes } from "./routes.js";
-import { setupVite, serveStatic, log } from "./vite.js";
+if (process.env.NODE_ENV !== "production") {
+  const { setupVite, log } = await import("./vite.js");
+  await setupVite(app, server);
+} else {
+  const { serveStatic } = await import("./vite.js");
+  serveStatic(app);
+}
+
 
 const app = express();
 
